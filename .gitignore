@@ -1,0 +1,4 @@
+/unblamed
+*.test
+*.out
+.DS_Store

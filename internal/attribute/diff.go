@@ -21,6 +21,22 @@ type FileDiff struct {
 	Kind     FileKind
 	Hunks    []Hunk
 	IsBinary bool
+	// OldNoEOFMarker: true if the diff carried `\ No newline at end of file` after old-side lines.
+	OldNoEOFMarker bool
+	// NewNoEOFMarker: true if the diff carried `\ No newline at end of file` after new-side lines.
+	NewNoEOFMarker bool
+}
+
+// ResolveNewEOFNewline returns whether the target file should end with a newline,
+// given the old content's actual EOF state and the diff markers seen.
+func (f *FileDiff) ResolveNewEOFNewline(oldEndsWithNewline bool) bool {
+	if f.NewNoEOFMarker {
+		return false
+	}
+	if f.OldNoEOFMarker {
+		return true
+	}
+	return oldEndsWithNewline
 }
 
 type Hunk struct {
@@ -38,6 +54,7 @@ func ParseDiff(raw []byte) ([]FileDiff, error) {
 	var out []FileDiff
 	var cur *FileDiff
 	var hunk *Hunk
+	var lastLineKind string
 
 	flushHunk := func() {
 		if cur != nil && hunk != nil {
@@ -81,9 +98,19 @@ func ParseDiff(raw []byte) ([]FileDiff, error) {
 			hunk = &h
 		case hunk != nil && strings.HasPrefix(l, "-"):
 			hunk.OldLines = append(hunk.OldLines, strings.TrimPrefix(l, "-"))
+			lastLineKind = "-"
 		case hunk != nil && strings.HasPrefix(l, "+"):
 			hunk.NewLines = append(hunk.NewLines, strings.TrimPrefix(l, "+"))
+			lastLineKind = "+"
 		case hunk != nil && strings.HasPrefix(l, `\ No newline at end of file`):
+			if cur != nil {
+				switch lastLineKind {
+				case "+":
+					cur.NewNoEOFMarker = true
+				case "-":
+					cur.OldNoEOFMarker = true
+				}
+			}
 			continue
 		}
 	}

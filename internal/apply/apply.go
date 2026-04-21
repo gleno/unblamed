@@ -102,8 +102,15 @@ func Run(g gitx.Git, opts Options) (*Result, error) {
 		return nil, fmt.Errorf("rev-parse final tree: %w", err)
 	}
 	if finalTree != targetTree {
+		diagPath := filepath.Join(g.Dir(), ".git", "unblamed", "mismatch.diff")
+		if diag, derr := g.Exec("diff", "--no-color", "--stat", finalTree, targetTree); derr == nil {
+			_ = os.WriteFile(diagPath, diag, 0o644)
+		}
+		if diag, derr := g.Exec("diff", "--no-color", finalTree, targetTree); derr == nil {
+			_ = os.WriteFile(diagPath+".full", diag, 0o644)
+		}
 		rollback(g, headSHA)
-		return nil, fmt.Errorf("final tree %s does not match reformatted tree %s; rolled back", short(finalTree), short(targetTree))
+		return nil, fmt.Errorf("final tree %s does not match reformatted tree %s; rolled back (see %s)", short(finalTree), short(targetTree), diagPath)
 	}
 
 	if err := snapshot.Delete(g); err != nil {
@@ -149,7 +156,8 @@ func materializeAuthor(g gitx.Git, snap *snapshot.Snapshot, plan *attribute.Plan
 		if err != nil {
 			return fmt.Errorf("read old %s: %w", file, err)
 		}
-		newContent := attribute.ApplyHunks(oldContent, hunks)
+		newEOF := plan.NewEOFNewline(file, oldContent)
+		newContent := attribute.ApplyHunks(oldContent, hunks, newEOF)
 		abs := filepath.Join(g.Dir(), file)
 		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 			return err

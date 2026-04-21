@@ -2,8 +2,8 @@ package attribute
 
 import "strings"
 
-func ApplyHunks(oldContent string, hunks []Hunk) string {
-	oldLines, hadTrailingNewline := splitLines(oldContent)
+func ApplyHunks(oldContent string, hunks []Hunk, newEOFNewline bool) string {
+	oldLines, _ := splitLines(oldContent)
 	var out []string
 	cursor := 1
 	for _, h := range hunks {
@@ -27,7 +27,7 @@ func ApplyHunks(oldContent string, hunks []Hunk) string {
 		out = append(out, oldLines[i-1])
 	}
 	joined := strings.Join(out, "\n")
-	if hadTrailingNewline && len(out) > 0 {
+	if newEOFNewline && len(out) > 0 {
 		joined += "\n"
 	}
 	return joined

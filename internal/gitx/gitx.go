@@ -247,7 +247,7 @@ func ApplyIndexAndWorkTree(g Git, patch []byte) error {
 }
 
 func CommitWithAuthor(g Git, name, email, msg string) (string, error) {
-	args := []string{"commit", "--author", fmt.Sprintf("%s <%s>", name, email), "-m", msg, "--allow-empty"}
+	args := []string{"commit", "--author", fmt.Sprintf("%s <%s>", name, email), "-m", msg, "--allow-empty", "--no-verify"}
 	_, err := g.Exec(args...)
 	if err != nil {
 		return "", err

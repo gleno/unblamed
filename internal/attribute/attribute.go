@@ -24,18 +24,32 @@ type FileOp struct {
 }
 
 type Plan struct {
-	Order   []AuthorKey
-	Hunks   map[AuthorKey][]HunkAssignment
-	FileOps map[AuthorKey][]FileOp
-	Fallback AuthorKey
+	Order        []AuthorKey
+	Hunks        map[AuthorKey][]HunkAssignment
+	FileOps      map[AuthorKey][]FileOp
+	Fallback     AuthorKey
+	fileDiffByPath map[string]*FileDiff
+}
+
+func (p *Plan) FileDiff(file string) *FileDiff {
+	return p.fileDiffByPath[file]
+}
+
+func (p *Plan) NewEOFNewline(file string, oldContent string) bool {
+	f := p.fileDiffByPath[file]
+	if f == nil {
+		return strings.HasSuffix(oldContent, "\n") || oldContent == ""
+	}
+	return f.ResolveNewEOFNewline(strings.HasSuffix(oldContent, "\n"))
 }
 
 func BuildPlan(snap *snapshot.Snapshot, files []FileDiff, fallback snapshot.Identity) Plan {
 	fallbackKey := AuthorKey{Name: fallback.Name, Email: fallback.Email}
 	p := Plan{
-		Hunks:    map[AuthorKey][]HunkAssignment{},
-		FileOps:  map[AuthorKey][]FileOp{},
-		Fallback: fallbackKey,
+		Hunks:          map[AuthorKey][]HunkAssignment{},
+		FileOps:        map[AuthorKey][]FileOp{},
+		Fallback:       fallbackKey,
+		fileDiffByPath: map[string]*FileDiff{},
 	}
 	seen := map[AuthorKey]struct{}{}
 	add := func(k AuthorKey) {
@@ -43,7 +57,9 @@ func BuildPlan(snap *snapshot.Snapshot, files []FileDiff, fallback snapshot.Iden
 			seen[k] = struct{}{}
 		}
 	}
-	for _, f := range files {
+	for i := range files {
+		f := files[i]
+		p.fileDiffByPath[f.Path] = &f
 		if f.IsBinary || f.Kind == FileAdded || f.Kind == FileDeleted {
 			p.FileOps[fallbackKey] = append(p.FileOps[fallbackKey], FileOp{Path: f.Path, OldPath: f.OldPath, Kind: f.Kind})
 			add(fallbackKey)

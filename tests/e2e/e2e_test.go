@@ -9,6 +9,49 @@ import (
 	"github.com/gleno/unblamed/internal/repotest"
 )
 
+func TestBothSidesLackEOFNewline(t *testing.T) {
+	r := repotest.New(t)
+	r.CommitAs("Alice", "alice@example.com", map[string]string{
+		"a.py": "from x import a, b\n\ndef foo():\n    return 1",
+	})
+	mustRunCLI(t, r, 0, "stage")
+	r.WriteFiles(map[string]string{"a.py": "from x import (\n    a,\n    b,\n)\n\ndef foo():\n    return 1"})
+	mustRunCLI(t, r, 0, "apply")
+	got := r.Read("a.py")
+	want := "from x import (\n    a,\n    b,\n)\n\ndef foo():\n    return 1"
+	if got != want {
+		t.Fatalf("content mismatch:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestFormatterRemovesTrailingNewline(t *testing.T) {
+	r := repotest.New(t)
+	r.CommitAs("Alice", "alice@example.com", map[string]string{
+		"a.py": "def foo():\n    return 1\n",
+	})
+	mustRunCLI(t, r, 0, "stage")
+	r.WriteFiles(map[string]string{"a.py": "def foo():\n    return 1"})
+	mustRunCLI(t, r, 0, "apply")
+	got := r.Read("a.py")
+	if got != "def foo():\n    return 1" {
+		t.Fatalf("content mismatch after apply: %q", got)
+	}
+}
+
+func TestFormatterAddsTrailingNewline(t *testing.T) {
+	r := repotest.New(t)
+	r.CommitAs("Alice", "alice@example.com", map[string]string{
+		"a.py": "def foo():\n    return 1",
+	})
+	mustRunCLI(t, r, 0, "stage")
+	r.WriteFiles(map[string]string{"a.py": "def foo():\n    return 1\n"})
+	mustRunCLI(t, r, 0, "apply")
+	got := r.Read("a.py")
+	if got != "def foo():\n    return 1\n" {
+		t.Fatalf("content mismatch after apply: %q", got)
+	}
+}
+
 func TestSingleAuthor(t *testing.T) {
 	r := repotest.New(t)
 	r.CommitAs("Alice", "alice@example.com", map[string]string{

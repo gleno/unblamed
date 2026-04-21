@@ -1,4 +1,25 @@
+# Binaries
 /unblamed
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test & coverage
 *.test
 *.out
+coverage.txt
+
+# Go workspace / build cache
+go.work
+go.work.sum
+vendor/
+
+# Editors / OS
 .DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local docs (notes, feat/bug tracking, plans)
+/docs/
